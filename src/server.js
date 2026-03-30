@@ -1,7 +1,13 @@
-import dotenv from "dotenv";
+// require('dotenv').config({path: './env'})
+
+import dotenv from "dotenv"
 import app from "./app.js";
+import connectDB from "./config/db.js";
 
 dotenv.config();
+
+// Connect DB
+connectDB();
 
 const PORT = process.env.PORT || 5000;
 

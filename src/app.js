@@ -7,6 +7,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get("/",(req,res)=>{
+    res.send('At home directory');
+})
+
 // Health check route
 //////***Creating an API endpoint */
 app.get("/health", (req, res) => {
