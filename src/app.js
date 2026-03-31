@@ -4,7 +4,9 @@ import cors from "cors";
 const app = express();
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+    origin: process.env.CORS_ORIGIN
+}));
 app.use(express.json());
 
 app.get("/",(req,res)=>{
@@ -28,6 +30,6 @@ app.use((err, req, res, next) => {
     success: false,
     message: "Something went wrong",
   });
-});
+}); 
 
 export default app;
