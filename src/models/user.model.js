@@ -1,5 +1,6 @@
-import mongoose from "mongoose";
+import mongoose, {Schema} from "mongoose";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 const userSchema = new mongoose.Schema(
   {
@@ -13,6 +14,7 @@ const userSchema = new mongoose.Schema(
 
     email: {
       type: String,
+      lowercase: true,
       required: [true, "Email is required"],
       unique: true,
       trim: true,
@@ -29,6 +31,18 @@ const userSchema = new mongoose.Schema(
       minlength: [6, "Password must be at least 6 characters"],
       select: false, // security: not returned by default
     },
+
+    loginAttempts: {
+      type: Number,
+      default: 0
+    },
+    lockUntil: Date,
+
+    isEmailVerified: {
+      type: Boolean,
+      default: false
+    },
+    emailVerificationToken: String,
 
     ///Defines roles access
     role: {
@@ -70,14 +84,16 @@ const userSchema = new mongoose.Schema(
     },
 
     // Password reset
-    resetPasswordToken: String,
-    resetPasswordExpire: Date,
+    refreshToken: {
+      type: String,
+      select: false
+    },
+    passwordChangedAt: Date
   },
   {
     timestamps: true, // createdAt, updatedAt
   }
 );
-
 
 // INDEXES (IMPORTANT FOR PERFORMANCE)
 userSchema.index({ email: 1 });
@@ -100,16 +116,58 @@ userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-
-// REMOVE SENSITIVE DATA
-userSchema.methods.toJSON = function () {
-  const obj = this.toObject();
-  delete obj.password;
-  delete obj.resetPasswordToken;
-  delete obj.resetPasswordExpire;
-  return obj;
+//Account lock helpers
+userSchema.methods.isAccountLocked = function () {
+  return this.lockUntil && this.lockUntil > Date.now();
 };
 
+userSchema.methods.incrementLoginAttempts = async function () {
+  if (this.isAccountLocked()) {
+    throw new Error("Account is locked. Try again later.");
+  }
+
+  this.loginAttempts += 1;
+
+  if (this.loginAttempts >= 5) {
+    this.lockUntil = Date.now() + 15 * 60 * 1000; // 15 min lock
+  }
+
+  await this.save();
+};
+
+userSchema.methods.resetLoginAttempts = async function () {
+  this.loginAttempts = 0;
+  this.lockUntil = undefined;
+  await this.save();
+};
+
+
+userSchema.methods.generateAccessToken = function(){
+    return jwt.sign(
+        {
+            _id: this._id,
+            email: this.email,
+            name: this.name,
+            role: this.role
+        },
+        process.env.ACCESS_TOKEN_SECRET,
+        {
+            expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+        }
+    )
+}
+
+userSchema.methods.generateRefreshToken = function(){
+    return jwt.sign(
+        {
+          _id: this._id
+        },
+        process.env.REFRESH_TOKEN_SECRET,
+        {
+          expiresIn: process.env.REFRESH_TOKEN_EXPIRY
+        }
+    )
+};
 
 const User = mongoose.model("User", userSchema);
 
