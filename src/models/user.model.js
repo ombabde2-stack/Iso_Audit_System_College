@@ -32,6 +32,7 @@ const userSchema = new mongoose.Schema(
       select: false, // security: not returned by default
     },
 
+    // Security
     loginAttempts: {
       type: Number,
       default: 0
@@ -43,6 +44,14 @@ const userSchema = new mongoose.Schema(
       default: false
     },
     emailVerificationToken: String,
+
+    // Password reset
+    passwordChangedAt: Date,
+
+    refreshToken: {
+      type: String,
+      select: false
+    },
 
     ///Defines roles access
     role: {
@@ -65,9 +74,35 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // STUDENT FIELDS (ISO FORMS)
+    rollNumber: {
+      type: String,
+      required: function () {
+        return this.role === "student";
+      },
+    },
+    grNumber: String,
+    class: String,
+    division: String,
+    year: String,
+
+    // FACULTY FIELDS
+    employeeId: {
+      type: String,
+      required: function () {
+        return this.role === "faculty";
+      },
+    },
+    specialization: String,
+    joiningDate: Date,
+
     phone: {
       type: String,
       match: [/^[0-9]{10}$/, "Please enter a valid 10-digit phone number"],
+    },
+
+    profileImage: {
+      type: String, // Cloudinary URL
     },
 
     isActive: {
@@ -75,20 +110,10 @@ const userSchema = new mongoose.Schema(
       default: true,
     },
 
-    profileImage: {
-      type: String, // Cloudinary URL
-    },
-
     lastLogin: {
       type: Date,
     },
 
-    // Password reset
-    refreshToken: {
-      type: String,
-      select: false
-    },
-    passwordChangedAt: Date
   },
   {
     timestamps: true, // createdAt, updatedAt
