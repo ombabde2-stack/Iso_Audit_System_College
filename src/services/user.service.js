@@ -8,6 +8,7 @@ const registerUserService = async (data) => {
     email,
     password,
     role,
+    department,
     rollNumber,
     employeeId,
   } = data;
@@ -34,11 +35,13 @@ const registerUserService = async (data) => {
   }
 
   // 3️) Create user (password hashed via model)
+  console.log(data);
   const user = await User.create({
     name,
     email,
     password,
     role,
+    department,
     rollNumber,
     employeeId,
   });
