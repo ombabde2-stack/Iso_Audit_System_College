@@ -2,7 +2,7 @@ import mongoose, {Schema} from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const userSchema = new mongoose.Schema(
+const userSchema = new Schema(
   {
     name: {
       type: String,
@@ -22,7 +22,6 @@ const userSchema = new mongoose.Schema(
         /^\S+@\S+\.\S+$/,
         "Please use a valid email address",
       ],
-      index: true,
     },
 
     password: {
@@ -52,6 +51,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false
     },
+    refreshTokenExpiry: Date,
 
     ///Defines roles access
     role: {
@@ -121,7 +121,6 @@ const userSchema = new mongoose.Schema(
 );
 
 // INDEXES (IMPORTANT FOR PERFORMANCE)
-userSchema.index({ email: 1 });
 userSchema.index({ role: 1, department: 1 });
 
 
@@ -147,6 +146,12 @@ userSchema.methods.isAccountLocked = function () {
 };
 
 userSchema.methods.incrementLoginAttempts = async function () {
+
+  if (this.lockUntil && this.lockUntil < Date.now()) {
+    this.loginAttempts = 0;
+    this.lockUntil = undefined;
+  }
+
   if (this.isAccountLocked()) {
     throw new Error("Account is locked. Try again later.");
   }
@@ -196,4 +201,4 @@ userSchema.methods.generateRefreshToken = function(){
 
 const User = mongoose.model("User", userSchema);
 
-export default User;
+export {User};

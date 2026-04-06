@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import errorHandler from "./middlewares/error.middleware.js";
+import userRoutes from "./routes/user.routes.js"
 
 const app = express();
 
@@ -15,21 +17,9 @@ app.get("/",(req,res)=>{
 
 // Health check route
 //////***Creating an API endpoint */
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Server is running successfully 🚀",
-  });
-});
+app.use("/api/v1/users", userRoutes);
 
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-
-  res.status(500).json({
-    success: false,
-    message: "Something went wrong",
-  });
-}); 
+// Always last
+app.use(errorHandler); 
 
 export default app;
