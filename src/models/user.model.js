@@ -56,8 +56,8 @@ const userSchema = new Schema(
     ///Defines roles access
     role: {
       type: String,
-      enum: ["admin", "faculty", "student", "coordinator"],
-      default: "student",
+      enum: ["admin", "faculty", "hod"],
+      default: "faculty",
       index: true,
     },
 
@@ -73,18 +73,6 @@ const userSchema = new Schema(
       type: String, // e.g., HOD, Assistant Head, Coordinator
       trim: true,
     },
-
-    // STUDENT FIELDS (ISO FORMS)
-    rollNumber: {
-      type: String,
-      required: function () {
-        return this.role === "student";
-      },
-    },
-    grNumber: String,
-    class: String,
-    division: String,
-    year: String,
 
     // FACULTY FIELDS
     employeeId: {
@@ -125,24 +113,23 @@ userSchema.index({ role: 1, department: 1 });
 
 
 // HASH PASSWORD BEFORE SAVE
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
 
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
-
 });
 
 
 // COMPARE PASSWORD METHOD
 userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
-};
+}
 
 //Account lock helpers
 userSchema.methods.isAccountLocked = function () {
   return this.lockUntil && this.lockUntil > Date.now();
-};
+}
 
 userSchema.methods.incrementLoginAttempts = async function () {
 
@@ -162,14 +149,13 @@ userSchema.methods.incrementLoginAttempts = async function () {
   }
 
   await this.save();
-};
+}
 
 userSchema.methods.resetLoginAttempts = async function () {
   this.loginAttempts = 0;
   this.lockUntil = undefined;
   await this.save();
-};
-
+}
 
 userSchema.methods.generateAccessToken = function(){
     return jwt.sign(
@@ -177,11 +163,12 @@ userSchema.methods.generateAccessToken = function(){
             _id: this._id,
             email: this.email,
             name: this.name,
-            role: this.role
+            role: this.role,
+            department: this.department
         },
         process.env.ACCESS_TOKEN_SECRET,
         {
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+          expiresIn: process.env.ACCESS_TOKEN_EXPIRY
         }
     )
 }
