@@ -3,7 +3,7 @@ import { refreshAccessToken, registerUser } from "../controllers/user.controller
 import { loginUser } from "../controllers/user.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { logoutUser } from "../controllers/user.controller.js";
-
+import { authorizeRoles } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
@@ -14,18 +14,13 @@ router.post("/login", loginUser);
 router.route("/logout").post(verifyJWT, logoutUser);
 router.route("/refresh-token").post(refreshAccessToken);
 
-// router.post(
-//   "/create-form",
-//   verifyJWT,
-//   authorizeRoles("faculty"),
-//   createForm
-// );
+router.get("/admin", verifyJWT, authorizeRoles("admin"), (req, res) => {
+  res.send("Admin only");
+});
 
-// router.post(
-//   "/review/:id",
-//   verifyJWT,
-//   authorizeRoles("hod"),
-//   reviewForm
-// );
+router.get("/faculty", verifyJWT, authorizeRoles("faculty"), (req, res) => {
+  res.send("Faculty only");
+});
+
 
 export default router;

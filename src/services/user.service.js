@@ -2,7 +2,9 @@
 import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
- 
+
+const ALLOWED_ROLES = ["admin", "faculty", "hod"];
+
 const registerUserService = async (data) => {
   const {
     name,
@@ -15,15 +17,19 @@ const registerUserService = async (data) => {
 
   // 1) Validate input
 
-  // const email = data.email?.toLowerCase();
+  email = email?.toLowerCase();
 
   if (!name?.trim() || !email?.trim() || !password?.trim() || !role) {
     throw new ApiError(400, "All fields are required");
   }
 
   // Role-based validation
+  if (!ALLOWED_ROLES.includes(role)) {
+    throw new ApiError(400, "Invalid role");
+  }
+
   if (role === "faculty" && !employeeId) {
-    throw new ApiError(400, "Employee ID is required");
+    throw new ApiError(400, "Employee ID is required for faculty");
   }
 
   if (password.length < 6) {
@@ -37,7 +43,6 @@ const registerUserService = async (data) => {
 
   // 2️) Check existing user
   const existingUser = await User.findOne({email});
-  
   if (existingUser) {
     throw new ApiError(409, "User already exists");
   }
@@ -68,9 +73,8 @@ const registerUserService = async (data) => {
 
 const loginUserService = async (data) => {
 
-  const email = data.email?.toLowerCase();
-
-  const {password } = data;
+  const {email, password } = data;
+  email = email?.toLowerCase();
 
   // 1. Validate input
   if (!email || !password) {
@@ -130,14 +134,14 @@ const loginUserService = async (data) => {
 
 const logoutUserService = async (userId) => {
 
-  const user = await User.findByIdAndUpdate(userId, {
-    refreshToken: null,
-    refreshTokenExpiry: null,
-  });
+  const user = await User.findById(userId);
 
-  if (!user) {
-    throw new ApiError(404, "User not found");
-  }
+  if (!user) throw new ApiError(404, "User not found");
+
+  user.refreshToken = null;
+  user.refreshTokenExpiry = null;
+
+  await user.save();
 
   return true;
 };
@@ -152,7 +156,8 @@ const refreshTokenService = async (incomingRefreshToken) => {
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET
     );
-  } catch (error) {
+  } 
+  catch (error) {
     throw new ApiError(401, "Invalid or expired refresh token");
   }
 
