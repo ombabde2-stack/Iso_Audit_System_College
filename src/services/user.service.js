@@ -1,4 +1,5 @@
 // services/user.service.js
+import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
  
@@ -14,7 +15,7 @@ const registerUserService = async (data) => {
 
   // 1) Validate input
 
-  const email = data.email?.toLowerCase();
+  // const email = data.email?.toLowerCase();
 
   if (!name?.trim() || !email?.trim() || !password?.trim() || !role) {
     throw new ApiError(400, "All fields are required");
@@ -127,6 +128,70 @@ const loginUserService = async (data) => {
   };
 };
 
+const logoutUserService = async (userId) => {
+
+  const user = await User.findByIdAndUpdate(userId, {
+    refreshToken: null,
+    refreshTokenExpiry: null,
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return true;
+};
+
+const refreshTokenService = async (incomingRefreshToken) => {
+
+  // Verify token
+  let decoded;
+
+  try {
+    decoded = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+  } catch (error) {
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
+
+  // 2️⃣ Find user
+  const user = await User.findById(decoded._id).select("+refreshToken");
+
+  if (!user) {
+    throw new ApiError(401, "User not found");
+  }
+
+  // 3️⃣ Match token (CRITICAL SECURITY)
+  if (user.refreshToken !== incomingRefreshToken) {
+    throw new ApiError(401, "Refresh token mismatch");
+  }
+
+  // 4️⃣ Check expiry (extra safety)
+  if (user.refreshTokenExpiry < Date.now()) {
+    throw new ApiError(401, "Refresh token expired");
+  }
+
+  // 5️⃣ Generate new tokens (ROTATION 🔥)
+  const newAccessToken = user.generateAccessToken();
+  const newRefreshToken = user.generateRefreshToken();
+
+  // 6️⃣ Save new refresh token
+  user.refreshToken = newRefreshToken;
+  user.refreshTokenExpiry =
+    Date.now() + 7 * 24 * 60 * 60 * 1000;
+
+  await user.save();
+
+  return {
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+  };
+};
+
 export { registerUserService,
-         loginUserService
+         loginUserService,
+         logoutUserService,
+         refreshTokenService
 };
