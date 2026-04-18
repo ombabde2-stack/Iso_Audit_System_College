@@ -70,3 +70,59 @@ export const getAllFormsService = async (user) => {
   return forms;
 };
 
+export const getMyFormsService = async (user, query) => {
+
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+
+  const skip = (page - 1) * limit;
+
+  const filter = {
+    submittedBy: user._id
+  };
+
+  const totalCount = await Form.countDocuments(filter);
+
+  const forms = await Form.find(filter)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+  return {
+    forms,
+    pagination: {
+      totalCount,
+      currentPage: page,
+      totalPages: Math.ceil(totalCount / limit),
+      limit
+    }
+  };
+};
+
+export const getSingleFormService = async (formId, user) => {
+
+  const form = await Form.findById(formId)
+    .populate("submittedBy", "name email role");
+
+  if (!form) {
+    throw new ApiError(404, "Form not found");
+  }
+
+  // Faculty can only see own forms
+  if (
+    user.role === "faculty" &&
+    form.submittedBy._id.toString() !== user._id.toString()
+  ) {
+    throw new ApiError(403, "Access denied");
+  }
+
+  // HOD only same department
+  if (
+    user.role === "hod" &&
+    form.department !== user.department
+  ) {
+    throw new ApiError(403, "Access denied");
+  }
+
+  return form;
+};
