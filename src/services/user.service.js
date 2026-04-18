@@ -6,7 +6,7 @@ import { ApiError } from "../utils/ApiError.js";
 const ALLOWED_ROLES = ["admin", "faculty", "hod"];
 
 const registerUserService = async (data) => {
-  const {
+  let {
     name,
     email,
     password,
@@ -73,7 +73,7 @@ const registerUserService = async (data) => {
 
 const loginUserService = async (data) => {
 
-  const {email, password } = data;
+  let {email, password } = data;
   email = email?.toLowerCase();
 
   // 1. Validate input
@@ -141,7 +141,7 @@ const logoutUserService = async (userId) => {
   user.refreshToken = null;
   user.refreshTokenExpiry = null;
 
-  await user.save();
+  await user.save({ validateBeforeSave:false });
 
   return true;
 };

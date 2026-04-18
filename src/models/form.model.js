@@ -2,15 +2,14 @@ import mongoose from "mongoose";
 
 const formSchema = new mongoose.Schema(
   {
-    // 🔹 Type of ISO form
+    // Reference to template (IMPORTANT)
     formType: {
-      type: String,
+      type: String, // FF-114, FF-117
       required: true,
-      trim: true,
       index: true
     },
 
-    // 🔹 Who submitted
+    // Who submitted
     submittedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -18,15 +17,14 @@ const formSchema = new mongoose.Schema(
       index: true
     },
 
-    // 🔹 Department
+    // Department
     department: {
       type: String,
       required: true,
-      trim: true,
       index: true
     },
 
-    // 🔹 Workflow status
+    // Workflow status
     status: {
       type: String,
       enum: ["PENDING", "APPROVED", "REJECTED"],
@@ -34,10 +32,24 @@ const formSchema = new mongoose.Schema(
       index: true
     },
 
-    // 🔹 Dynamic form data
+    // 🔥 Dynamic data (core feature)
     data: {
       type: mongoose.Schema.Types.Mixed,
       required: true
+    },
+
+    // Review tracking (HOD)
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    },
+
+    reviewedAt: {
+      type: Date
+    },
+
+    remarks: {
+      type: String
     }
 
   },
@@ -47,10 +59,9 @@ const formSchema = new mongoose.Schema(
 );
 
 
-// INDEXES (important for scalability)
+// 🔥 INDEXES (important for dashboard + queries)
 formSchema.index({ formType: 1, department: 1 });
-formSchema.index({ status: 1, createdAt: -1 });
 formSchema.index({ submittedBy: 1, createdAt: -1 });
-
+formSchema.index({ status: 1, createdAt: -1 });
 
 export const Form = mongoose.model("Form", formSchema);
