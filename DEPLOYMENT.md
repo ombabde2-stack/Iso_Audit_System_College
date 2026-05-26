@@ -13,7 +13,7 @@ This project is split into two deployable apps:
 
 ## Backend on Render
 
-Create a new Render Web Service and connect this repository.
+Create a new Render Web Service and connect this repository, or create a Render Blueprint from `render.yaml`.
 
 Use these settings:
 
@@ -23,6 +23,8 @@ Runtime: Node
 Build Command: npm ci
 Start Command: npm start
 ```
+
+If using the blueprint, Render reads these settings from `render.yaml`; you only need to provide the secret environment values.
 
 Add these environment variables in Render:
 
