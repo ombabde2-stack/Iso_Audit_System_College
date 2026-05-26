@@ -118,3 +118,15 @@ dist
 .pnp.*
 
 # End of https://mrkandreev.name/snippets/gitignore-generator/#Node
+
+# Project runtime artifacts
+uploads/
+temp/
+backend/uploads/
+backend/temp/
+backend_new/uploads/
+backend_new/temp/
+frontend_new/dist/
+
+# Keep deploy examples, never real secrets
+!.env.example
