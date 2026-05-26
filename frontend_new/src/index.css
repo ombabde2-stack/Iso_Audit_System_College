@@ -1,0 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  :root {
+    color-scheme: light;
+    --surface-tooltip: #0f172a;
+    --text-tooltip: #f8fafc;
+    --border-tooltip: #334155;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --surface-tooltip: #111827;
+    --text-tooltip: #e5e7eb;
+    --border-tooltip: #263142;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply font-sans bg-slate-100 text-slate-900 dark:bg-[#0b0f14] dark:text-slate-100;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb { @apply rounded-full bg-slate-300 dark:bg-slate-700; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-400 dark:bg-slate-500; }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/60
+           dark:border-slate-800 dark:bg-[#111821] dark:shadow-black/20;
+  }
+
+  .card-hover {
+    @apply card transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50
+           dark:hover:border-slate-700 dark:hover:bg-[#141d28];
+  }
+
+  .glass {
+    @apply border border-white/70 bg-white/85 backdrop-blur-md
+           dark:border-slate-800/80 dark:bg-[#111821]/90;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600
+           transition-colors duration-150 hover:bg-slate-100 hover:text-slate-900
+           dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-slate-100 cursor-pointer;
+  }
+
+  .sidebar-link.active {
+    @apply bg-slate-900 text-white shadow-sm hover:bg-slate-900 hover:text-white
+           dark:bg-slate-800 dark:text-white dark:hover:bg-slate-800 dark:hover:text-white;
+  }
+
+  .input-base {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900
+           placeholder-slate-400 transition-colors duration-150
+           focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25
+           dark:border-slate-700 dark:bg-[#0f151d] dark:text-slate-100 dark:placeholder-slate-500
+           dark:focus:border-brand-400 dark:focus:ring-brand-400/20;
+  }
+
+  .input-error {
+    @apply border-rose-400 focus:ring-rose-400/25 dark:border-rose-500;
+  }
+
+  .badge { @apply inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold; }
+  .badge-pending  { @apply badge border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/25 dark:text-amber-300; }
+  .badge-approved { @apply badge border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/25 dark:text-emerald-300; }
+  .badge-rejected { @apply badge border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-950/25 dark:text-rose-300; }
+  .badge-draft    { @apply badge border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300; }
+  .badge-returned { @apply badge border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-800/60 dark:bg-orange-950/25 dark:text-orange-300; }
+
+  .stat-card {
+    @apply card flex items-center gap-4 p-5 transition-colors duration-150;
+  }
+
+  .table-base { @apply w-full text-sm; }
+  .table-base thead { @apply bg-slate-100 dark:bg-slate-900/80; }
+  .table-base th { @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400; }
+  .table-base td { @apply border-t border-slate-100 px-4 py-3 text-slate-700 dark:border-slate-800 dark:text-slate-300; }
+  .table-base tr { @apply transition-colors duration-100 hover:bg-slate-50 dark:hover:bg-slate-800/40; }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply text-brand-700 dark:text-brand-300;
+  }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(100,116,139,0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(100,116,139,0.08) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .dark .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(148,163,184,0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148,163,184,0.035) 1px, transparent 1px);
+  }
+
+  .animate-fade-in  { animation: fadeIn 0.3s ease-out both; }
+  .animate-slide-up { animation: slideUp 0.35s ease-out both; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
