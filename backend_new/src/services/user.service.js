@@ -63,6 +63,12 @@ export const refreshTokenService = async (incomingToken) => {
 
   const user = await User.findById(decoded._id).select("+refreshToken");
   if (!user || user.refreshToken !== incomingToken) throw new ApiError(401, "Refresh token mismatch. Please login again.");
+  if (!user.refreshTokenExpiry || user.refreshTokenExpiry < new Date()) {
+    user.refreshToken = undefined;
+    user.refreshTokenExpiry = undefined;
+    await user.save({ validateBeforeSave: false });
+    throw new ApiError(401, "Refresh token has expired. Please login again.");
+  }
 
   const accessToken = user.generateAccessToken();
   const refreshToken = user.generateRefreshToken();
