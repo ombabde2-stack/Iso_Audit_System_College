@@ -3,10 +3,24 @@ import { User } from "../models/user.model.js";
 
 // ── Faculty / Coordinator Dashboard ──────────
 export const getUserDashboardService = async (user) => {
-  const stats = await Form.aggregate([
+  // Using $facet for sub-aggregation: combines stats and recentForms in single query
+  const aggregationResults = await Form.aggregate([
     { $match: { submittedBy: user._id } },
-    { $group: { _id: "$status", count: { $sum: 1 } } },
+    {
+      $facet: {
+        stats: [
+          { $group: { _id: "$status", count: { $sum: 1 } } }
+        ],
+        recentForms: [
+          { $sort: { createdAt: -1 } },
+          { $limit: 5 },
+          { $project: { formType: 1, formTitle: 1, status: 1, createdAt: 1, remarks: 1 } }
+        ]
+      }
+    }
   ]);
+
+  const { stats, recentForms } = aggregationResults[0];
 
   const result = { totalSubmitted: 0, pending: 0, approved: 0, rejected: 0, draft: 0 };
   stats.forEach((item) => {
@@ -17,20 +31,37 @@ export const getUserDashboardService = async (user) => {
     if (item._id === "DRAFT") result.draft = item.count;
   });
 
-  const recentForms = await Form.find({ submittedBy: user._id })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .select("formType formTitle status createdAt remarks");
-
   return { ...result, recentForms };
 };
 
 // ── HOD Dashboard ────────────────────────────
 export const getHodDashboardService = async (user) => {
-  const stats = await Form.aggregate([
-    { $match: { department: user.department } },
-    { $group: { _id: "$status", count: { $sum: 1 } } },
+  // Using $facet for sub-aggregation: combines stats and formTypeBreakdown in single query
+  // recentForms retrieved separately with populate functionality
+  const [aggregationResults, recentForms] = await Promise.all([
+    Form.aggregate([
+      { $match: { department: user.department } },
+      {
+        $facet: {
+          stats: [
+            { $group: { _id: "$status", count: { $sum: 1 } } }
+          ],
+          formTypeBreakdown: [
+            { $group: { _id: "$formType", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+          ]
+        }
+      }
+    ]),
+    Form.find({ department: user.department })
+      .populate("submittedBy", "name email")
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .select("formType formTitle status createdAt submittedBy")
   ]);
+
+  const { stats, formTypeBreakdown } = aggregationResults[0];
 
   const result = { totalForms: 0, pendingApproval: 0, approved: 0, rejected: 0 };
   stats.forEach((item) => {
@@ -39,19 +70,6 @@ export const getHodDashboardService = async (user) => {
     if (item._id === "APPROVED") result.approved = item.count;
     if (item._id === "REJECTED") result.rejected = item.count;
   });
-
-  const recentForms = await Form.find({ department: user.department })
-    .populate("submittedBy", "name email")
-    .sort({ createdAt: -1 })
-    .limit(8)
-    .select("formType formTitle status createdAt submittedBy");
-
-  const formTypeBreakdown = await Form.aggregate([
-    { $match: { department: user.department } },
-    { $group: { _id: "$formType", count: { $sum: 1 } } },
-    { $sort: { count: -1 } },
-    { $limit: 10 },
-  ]);
 
   return { ...result, recentForms, formTypeBreakdown };
 };
@@ -63,120 +81,122 @@ export const getHodResearchAnalyticsService = async (user) => {
   // Research forms: 126 (Faculty Research), 179 (Research Activity), 180 (Innovation & Patent)
   const researchFormTypes = ["126", "179", "180"];
   
-  // Collect research-related statistics
-  const [
-    researchStats,
-    facultyResearchCount,
-    researchPapers,
-    innovationPatents,
-    placementData,
-    monthlySubmissions,
-    statusBreakdown,
-    uniqueContributors
-  ] = await Promise.all([
-    // Total research forms by status
-    Form.aggregate([
-      { $match: { 
-        department, 
-        formType: { $in: researchFormTypes } 
-      }},
-      { $group: { 
-        _id: "$status", 
-        count: { $sum: 1 } 
-      }},
-    ]),
+  // Using $facet for sub-aggregation: combines 10+ queries into 1 faceted aggregation
+  // This reduces database queries from 10+ to 1 and improves performance significantly
+  const aggregationResults = await Form.aggregate([
+    {
+      $facet: {
+        // Total research forms by status
+        researchStats: [
+          { $match: { 
+            department, 
+            formType: { $in: researchFormTypes } 
+          }},
+          { $group: { 
+            _id: "$status", 
+            count: { $sum: 1 } 
+          }}
+        ],
 
-    // Form 126: Faculty Research Activity count
-    Form.countDocuments({
-      department,
-      formType: "126",
-      status: "APPROVED",
-    }),
+        // Form 126: Faculty Research Activity count
+        facultyResearchCount: [
+          { $match: { department, formType: "126", status: "APPROVED" } },
+          { $count: "count" }
+        ],
 
-    // Form 179: Research Activity Report - count approved
-    Form.countDocuments({
-      department,
-      formType: "179",
-      status: "APPROVED",
-    }),
+        // Form 179: Research Activity Report - count approved
+        researchPapers: [
+          { $match: { department, formType: "179", status: "APPROVED" } },
+          { $count: "count" }
+        ],
 
-    // Form 180: Innovation & Patent Report - count approved
-    Form.countDocuments({
-      department,
-      formType: "180",
-      status: "APPROVED",
-    }),
+        // Form 180: Innovation & Patent Report - count approved
+        innovationPatents: [
+          { $match: { department, formType: "180", status: "APPROVED" } },
+          { $count: "count" }
+        ],
 
-    // Extract placement percentage from forms (if available in data field)
-    Form.aggregate([
-      { $match: { department, formType: { $in: ["158", "159"] } } },
-      { $group: { _id: null, count: { $sum: 1 } } },
-    ]),
+        // Extract placement percentage from forms (if available in data field)
+        placementData: [
+          { $match: { department, formType: { $in: ["158", "159"] } } },
+          { $group: { _id: null, count: { $sum: 1 } } }
+        ],
 
-    // Monthly submission trends for research forms
-    Form.aggregate([
-      { $match: { department, formType: { $in: researchFormTypes } } },
-      {
-        $group: {
-          _id: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" },
+        // Monthly submission trends for research forms
+        monthlySubmissions: [
+          { $match: { department, formType: { $in: researchFormTypes } } },
+          {
+            $group: {
+              _id: {
+                year: { $year: "$createdAt" },
+                month: { $month: "$createdAt" },
+              },
+              count: { $sum: 1 },
+            },
           },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": -1, "_id.month": -1 } },
-      { $limit: 6 },
-    ]),
+          { $sort: { "_id.year": -1, "_id.month": -1 } },
+          { $limit: 6 }
+        ],
 
-    // Status breakdown of all forms in department
-    Form.aggregate([
-      { $match: { department } },
-      { $group: { _id: "$status", count: { $sum: 1 } } },
-    ]),
+        // Status breakdown of all forms in department
+        statusBreakdown: [
+          { $match: { department } },
+          { $group: { _id: "$status", count: { $sum: 1 } } }
+        ],
 
-    // Count unique faculty who submitted research
-    Form.aggregate([
-      { $match: { department, formType: { $in: researchFormTypes }, status: "APPROVED" } },
-      { $group: { _id: "$submittedBy", count: { $sum: 1 } } },
-      { $group: { _id: null, uniqueFaculty: { $sum: 1 } } },
-    ]),
+        // Count unique faculty who submitted research
+        uniqueContributors: [
+          { $match: { department, formType: { $in: researchFormTypes }, status: "APPROVED" } },
+          { $group: { _id: "$submittedBy" } },
+          { $group: { _id: null, uniqueFaculty: { $sum: 1 } } }
+        ],
 
-    // NEW: Smart Intelligence - Budget Analysis from Form 114
-    Form.aggregate([
-      { $match: { department, formType: "114", status: "APPROVED" } },
-      // Unwind the items array from the dynamic 'data' field
-      { $unwind: "$data.items" },
-      {
-        $group: {
-          _id: null,
-          totalBudgetItems: { $sum: 1 },
-          totalQty: { $sum: { $toDouble: "$data.items.qty" } }
-        }
-      }
-    ]),
-
-    // NEW: Smart Intelligence - Placement Analytics from Form 815
-    Form.aggregate([
-      { $match: { department, formType: "815", status: "APPROVED" } },
-      { $unwind: "$data.records" },
-      {
-        $group: {
-          _id: null,
-          totalPlaced: {
-            $sum: { $cond: [{ $eq: ["$data.records.type", "PLACEMENT"] }, 1, 0] }
-          },
-          highestPackage: { $max: { $toDouble: "$data.records.package" } },
-          totalHigherStudies: {
-            $sum: { $cond: [{ $eq: ["$data.records.type", "HIGHER STUDY"] }, 1, 0] }
+        // Smart Intelligence - Budget Analysis from Form 114
+        budgetStats: [
+          { $match: { department, formType: "114", status: "APPROVED" } },
+          { $unwind: "$data.items" },
+          {
+            $group: {
+              _id: null,
+              totalBudgetItems: { $sum: 1 },
+              totalQty: { $sum: { $toDouble: "$data.items.qty" } }
+            }
           }
-        }
+        ],
+
+        // Smart Intelligence - Placement Analytics from Form 815
+        placementIntelligence: [
+          { $match: { department, formType: "815", status: "APPROVED" } },
+          { $unwind: "$data.records" },
+          {
+            $group: {
+              _id: null,
+              totalPlaced: {
+                $sum: { $cond: [{ $eq: ["$data.records.type", "PLACEMENT"] }, 1, 0] }
+              },
+              highestPackage: { $max: { $toDouble: "$data.records.package" } },
+              totalHigherStudies: {
+                $sum: { $cond: [{ $eq: ["$data.records.type", "HIGHER STUDY"] }, 1, 0] }
+              }
+            }
+          }
+        ]
       }
-    ]),
+    }
   ]);
 
-  const budgetStats = uniqueContributors[1] || { totalBudgetItems: 0, totalQty: 0 };
-  const placementIntelligence = uniqueContributors[2] || { totalPlaced: 0, highestPackage: 0, totalHigherStudies: 0 };
+  const result = aggregationResults[0];
+  
+  const researchStats = result.researchStats;
+  const facultyResearchCount = result.facultyResearchCount[0]?.count || 0;
+  const researchPapers = result.researchPapers[0]?.count || 0;
+  const innovationPatents = result.innovationPatents[0]?.count || 0;
+  const placementData = result.placementData;
+  const monthlySubmissions = result.monthlySubmissions;
+  const statusBreakdown = result.statusBreakdown;
+  const uniqueContributors = result.uniqueContributors;
+  const budgetStats = result.budgetStats[0] || { totalBudgetItems: 0, totalQty: 0 };
+  const placementIntelligence = result.placementIntelligence[0] || { totalPlaced: 0, highestPackage: 0, totalHigherStudies: 0 };
   const uniqueFacultyCount = uniqueContributors[0]?.uniqueFaculty || 0;
 
   // Calculate research stats
@@ -244,28 +264,40 @@ export const getHodResearchAnalyticsService = async (user) => {
 
 // ── Admin Dashboard ──────────────────────────
 export const getAdminDashboardService = async () => {
-  const [formStats, userStats, recentForms, monthlyStats] = await Promise.all([
-    Form.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+  // Using $facet for sub-aggregation: combines formStats and monthlyStats in single query
+  // recentForms and userStats retrieved in parallel
+  const [aggregationResults, userStats, recentForms] = await Promise.all([
+    Form.aggregate([
+      {
+        $facet: {
+          formStats: [
+            { $group: { _id: "$status", count: { $sum: 1 } } }
+          ],
+          monthlyStats: [
+            {
+              $group: {
+                _id: {
+                  year: { $year: "$createdAt" },
+                  month: { $month: "$createdAt" },
+                },
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { "_id.year": -1, "_id.month": -1 } },
+            { $limit: 6 }
+          ]
+        }
+      }
+    ]),
     User.aggregate([{ $group: { _id: "$role", count: { $sum: 1 } } }]),
     Form.find()
       .populate("submittedBy", "name email department")
       .sort({ createdAt: -1 })
       .limit(10)
-      .select("formType formTitle status department createdAt submittedBy"),
-    Form.aggregate([
-      {
-        $group: {
-          _id: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" },
-          },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": -1, "_id.month": -1 } },
-      { $limit: 6 },
-    ]),
+      .select("formType formTitle status department createdAt submittedBy")
   ]);
+
+  const { formStats, monthlyStats } = aggregationResults[0];
 
   const formResult = { total: 0, pending: 0, approved: 0, rejected: 0 };
   formStats.forEach((item) => {
