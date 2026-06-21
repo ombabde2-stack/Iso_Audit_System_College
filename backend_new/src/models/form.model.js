@@ -27,11 +27,6 @@ const formSchema = new mongoose.Schema(
       default: "PENDING",
       index: true,
     },
-    // Dynamic data - flexible mixed type
-    data: {
-      type: mongoose.Schema.Types.Mixed,
-      default: {},
-    },
     // HOD Review
     reviewedBy: {
       type: mongoose.Schema.Types.ObjectId,

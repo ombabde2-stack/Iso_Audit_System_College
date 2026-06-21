@@ -32,7 +32,54 @@ export const getAllUsersService = async (query) => {
   return { users, pagination: { total, page: Number(page), pages: Math.ceil(total / Number(limit)) } };
 };
 
-// ── Update User Role ─────────────────────────
+// Admin user management
+export const createUserByAdminService = async (data, adminId) => {
+  const { name, email, password, role, department, designation, employeeId, phone } = data;
+
+  const exists = await User.findOne({ email });
+  if (exists) throw new ApiError(409, "Email already registered.");
+
+  const user = await User.create({
+    name,
+    email,
+    password,
+    role,
+    department,
+    designation,
+    employeeId,
+    phone,
+    isActive: true,
+  });
+
+  await AuditLog.create({
+    user: adminId,
+    action: "ADMIN_USER_CREATED",
+    resource: "User",
+    resourceId: user._id,
+    details: { targetEmail: user.email, role: user.role },
+  });
+
+  return User.findById(user._id).select("-password -refreshToken -passwordResetToken");
+};
+
+export const approveUserService = async (userId, adminId) => {
+  const user = await User.findById(userId);
+  if (!user) throw new ApiError(404, "User not found.");
+
+  user.isActive = true;
+  await user.save();
+
+  await AuditLog.create({
+    user: adminId,
+    action: "ADMIN_USER_APPROVED",
+    resource: "User",
+    resourceId: userId,
+    details: { targetEmail: user.email },
+  });
+
+  return User.findById(userId).select("-password -refreshToken -passwordResetToken");
+};
+
 export const updateUserRoleService = async (userId, role, adminId) => {
   const user = await User.findByIdAndUpdate(
     userId,

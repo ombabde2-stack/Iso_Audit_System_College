@@ -5,17 +5,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { storeFormSubmissionFile } from "./fileStorage.service.js";
 
 export const createFormService = async (user, payload, file) => {
-  let { formType, data = {}, remarks = "", status = "PENDING" } = payload;
-
-  // If data is sent as a JSON string (via FormData), parse it
-  if (typeof data === "string") {
-    try {
-      data = JSON.parse(data);
-    } catch (error) {
-      console.error("Failed to parse form data JSON:", error);
-      data = {};
-    }
-  }
+  const { formType, remarks = "", status = "PENDING" } = payload;
 
   if (!formType) throw new ApiError(400, "formType is required.");
   if (!file) throw new ApiError(400, "Please upload the completed form file.");
@@ -44,7 +34,6 @@ export const createFormService = async (user, payload, file) => {
     formTitle: template.title,
     submittedBy: user._id,
     department: user.department,
-    data,
     submitterRemarks: remarks,
     status: status === "DRAFT" ? "DRAFT" : "PENDING",
     attachments: storedFile ? [storedFile] : [],
@@ -140,7 +129,7 @@ export const getSingleFormService = async (formId, user) => {
 };
 
 export const updateFormSubmissionService = async (user, formId, payload, file) => {
-  const { data, remarks } = payload;
+  const { remarks } = payload;
 
   const form = await Form.findById(formId);
   if (!form) throw new ApiError(404, "Form not found.");
@@ -155,15 +144,6 @@ export const updateFormSubmissionService = async (user, formId, payload, file) =
     throw new ApiError(400, `Cannot edit a form with status '${form.status}'.`);
   }
 
-  let updatedData = data || form.data;
-  if (typeof updatedData === "string") {
-    try {
-      updatedData = JSON.parse(updatedData);
-    } catch (error) {
-      updatedData = form.data;
-    }
-  }
-
   // Handle new file if uploaded
   if (file) {
     const storedFile = await storeFormSubmissionFile(file, form.formType);
@@ -172,7 +152,6 @@ export const updateFormSubmissionService = async (user, formId, payload, file) =
     }
   }
 
-  form.data = updatedData;
   if (remarks) form.submitterRemarks = remarks;
   form.status = "PENDING"; // Move back to pending queue
   await form.save();

@@ -116,7 +116,7 @@ export const getHodResearchAnalyticsService = async (user) => {
           { $count: "count" }
         ],
 
-        // Extract placement percentage from forms (if available in data field)
+        // Placement tracking form count
         placementData: [
           { $match: { department, formType: { $in: ["158", "159"] } } },
           { $group: { _id: null, count: { $sum: 1 } } }
@@ -151,35 +151,14 @@ export const getHodResearchAnalyticsService = async (user) => {
           { $group: { _id: null, uniqueFaculty: { $sum: 1 } } }
         ],
 
-        // Smart Intelligence - Budget Analysis from Form 114
         budgetStats: [
           { $match: { department, formType: "114", status: "APPROVED" } },
-          { $unwind: "$data.items" },
-          {
-            $group: {
-              _id: null,
-              totalBudgetItems: { $sum: 1 },
-              totalQty: { $sum: { $toDouble: "$data.items.qty" } }
-            }
-          }
+          { $count: "totalBudgetForms" }
         ],
 
-        // Smart Intelligence - Placement Analytics from Form 815
         placementIntelligence: [
           { $match: { department, formType: "815", status: "APPROVED" } },
-          { $unwind: "$data.records" },
-          {
-            $group: {
-              _id: null,
-              totalPlaced: {
-                $sum: { $cond: [{ $eq: ["$data.records.type", "PLACEMENT"] }, 1, 0] }
-              },
-              highestPackage: { $max: { $toDouble: "$data.records.package" } },
-              totalHigherStudies: {
-                $sum: { $cond: [{ $eq: ["$data.records.type", "HIGHER STUDY"] }, 1, 0] }
-              }
-            }
-          }
+          { $count: "trackingForms" }
         ]
       }
     }
@@ -195,8 +174,8 @@ export const getHodResearchAnalyticsService = async (user) => {
   const monthlySubmissions = result.monthlySubmissions;
   const statusBreakdown = result.statusBreakdown;
   const uniqueContributors = result.uniqueContributors;
-  const budgetStats = result.budgetStats[0] || { totalBudgetItems: 0, totalQty: 0 };
-  const placementIntelligence = result.placementIntelligence[0] || { totalPlaced: 0, highestPackage: 0, totalHigherStudies: 0 };
+  const budgetStats = result.budgetStats[0] || { totalBudgetForms: 0 };
+  const placementIntelligence = result.placementIntelligence[0] || { trackingForms: 0 };
   const uniqueFacultyCount = uniqueContributors[0]?.uniqueFaculty || 0;
 
   // Calculate research stats
@@ -247,14 +226,14 @@ export const getHodResearchAnalyticsService = async (user) => {
       returnedForms: statusResult.returned,
     },
     placement: {
-      totalPlaced: placementIntelligence.totalPlaced || 0,
-      highestPackage: placementIntelligence.highestPackage || 0,
-      totalHigherStudies: placementIntelligence.totalHigherStudies || 0,
-      trackingForms: placementCount,
+      totalPlaced: 0,
+      highestPackage: 0,
+      totalHigherStudies: 0,
+      trackingForms: placementCount + (placementIntelligence.trackingForms || 0),
     },
     budget: {
-      totalItems: budgetStats.totalBudgetItems || 0,
-      totalQuantity: budgetStats.totalQty || 0,
+      totalItems: budgetStats.totalBudgetForms || 0,
+      totalQuantity: 0,
     },
     trends: {
       monthlyResearchSubmissions: monthlySubmissions.reverse(),

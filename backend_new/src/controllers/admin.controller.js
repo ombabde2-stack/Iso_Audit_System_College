@@ -3,11 +3,22 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import {
   getAllUsersService, updateUserRoleService, toggleUserStatusService,
   deleteUserService, adminResetPasswordService, getAuditLogsService, getAdminFormStatsService,
+  approveUserService, createUserByAdminService,
 } from "../services/admin.service.js";
 
 export const getAllUsers = asyncHandler(async (req, res) => {
   const result = await getAllUsersService(req.query);
   res.status(200).json(new ApiResponse(200, result, "Users fetched."));
+});
+
+export const createUserByAdmin = asyncHandler(async (req, res) => {
+  const user = await createUserByAdminService(req.body, req.user._id);
+  res.status(201).json(new ApiResponse(201, user, "User created successfully."));
+});
+
+export const approveUser = asyncHandler(async (req, res) => {
+  const user = await approveUserService(req.params.id, req.user._id);
+  res.status(200).json(new ApiResponse(200, user, "User approved successfully."));
 });
 
 export const updateUserRole = asyncHandler(async (req, res) => {

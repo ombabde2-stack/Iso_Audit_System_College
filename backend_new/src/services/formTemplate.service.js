@@ -1,13 +1,18 @@
 import { FormTemplate } from "../models/formTemplate.model.js";
 import { ApiError } from "../utils/ApiError.js";
 
+const sanitizeTemplatePayload = (data) => {
+  const { fields, sections, ...templateData } = data;
+  return templateData;
+};
+
 // Get templates assigned to a given role
 export const getTemplatesForRoleService = async (role) => {
   const templates = await FormTemplate.find({
     assignedRoles: role,
     status: "ACTIVE",
   })
-    .select("formNo title description sourceFile assignedRoles requiresHODApproval deadline fields sections")
+    .select("formNo title description sourceFile assignedRoles requiresHODApproval deadline")
     .sort({ formNo: 1 });
   return templates;
 };
@@ -17,7 +22,7 @@ export const getTemplateForRoleByFormNoService = async (role, formNo) => {
     formNo,
     assignedRoles: role,
     status: "ACTIVE",
-  }).select("formNo title description sourceFile assignedRoles requiresHODApproval deadline fields sections");
+  }).select("formNo title description sourceFile assignedRoles requiresHODApproval deadline");
 
   if (!template) {
     throw new ApiError(404, `Assigned template '${formNo}' not found.`);
@@ -46,12 +51,16 @@ export const getAllTemplatesService = async (query) => {
 export const createTemplateService = async (data) => {
   const exists = await FormTemplate.findOne({ formNo: data.formNo });
   if (exists) throw new ApiError(409, `Template with formNo '${data.formNo}' already exists.`);
-  return FormTemplate.create(data);
+  return FormTemplate.create(sanitizeTemplatePayload(data));
 };
 
 // Update template (admin only)
 export const updateTemplateService = async (id, data) => {
-  const template = await FormTemplate.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  const template = await FormTemplate.findByIdAndUpdate(
+    id, 
+    sanitizeTemplatePayload(data),
+    { new: true, runValidators: true }
+  );
   if (!template) throw new ApiError(404, "Template not found.");
   return template;
 };

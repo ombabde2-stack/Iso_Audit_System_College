@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Download, ExternalLink, FileText, ShieldCheck, Upload, TableProperties } from 'lucide-react';
+import { ArrowLeft, Download, FileText, ShieldCheck, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getMyTemplate } from '../../api/formTemplate.api';
 import { createForm } from '../../api/forms.api';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { FORM_NUMBERS } from '../../constants/formNumbers';
-import { ROLE_LABELS } from '../../constants/roles';
 import { getIsoFormFileUrl } from '../../constants/isoForms';
 import { useAuth } from '../../context/AuthContext';
 
@@ -16,9 +14,6 @@ const getAcceptedExtension = (sourceFile = '') => {
   const match = sourceFile.match(/\.[a-z0-9]+$/i);
   return match?.[0]?.toLowerCase() || '';
 };
-
-import { useForm } from 'react-hook-form';
-import DynamicFormRenderer from '../../components/forms/DynamicFormRenderer';
 
 export default function FillForm() {
   const { formNo } = useParams();
@@ -28,14 +23,6 @@ export default function FillForm() {
   const [loading, setLoading] = useState(true);
   const [submissionFile, setSubmissionFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-    reset,
-  } = useForm();
 
   useEffect(() => {
     if (!formNo) {
@@ -47,24 +34,21 @@ export default function FillForm() {
       .then((res) => {
         const data = res.data.data;
         setTemplate(data);
-        // Pre-fill some defaults if needed
-        reset({
-          academicYear: '2024-25',
-          department: user?.department || '',
-        });
       })
       .catch((err) => {
         toast.error(err.response?.data?.message || 'Could not load form');
         setTemplate(null);
       })
       .finally(() => setLoading(false));
-  }, [formNo, user, reset]);
+  }, [formNo]);
 
   const formTitle = template?.title || FORM_NUMBERS[formNo] || `Form #${formNo}`;
   const sourceFormUrl = getIsoFormFileUrl(formNo, template?.sourceFile);
   const requiredExtension = useMemo(() => getAcceptedExtension(template?.sourceFile), [template?.sourceFile]);
 
-  const onFormSubmit = async (formData) => {
+  const onFormSubmit = async (event) => {
+    event.preventDefault();
+
     if (!user?.signatureUrl) {
       toast.error('Please upload your digital signature in your profile before submitting.');
       navigate('/profile');
@@ -86,11 +70,9 @@ export default function FillForm() {
     try {
       await createForm({
         formType: template?.formNo || formNo,
-        data: formData, // This is the structured JSON data
-        remarks: formData.remarks || '',
         submissionFile,
       });
-      toast.success('Smart form and document submitted successfully.');
+      toast.success('Document submitted successfully.');
       navigate('/my-forms');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Submission failed');
@@ -143,7 +125,7 @@ export default function FillForm() {
                 Institutional Quality Management Protocol
               </p>
               <p className="mt-1">
-                This form captures structured data for the HOD Dashboard and stores a physical copy for ISO audit evidence.
+                Download the assigned template, complete it, sign it, and upload the finished document for ISO audit evidence.
               </p>
             </div>
           </div>
@@ -169,26 +151,12 @@ export default function FillForm() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-8">
-          {/* Smart Data Capture Section */}
+        <form onSubmit={onFormSubmit} className="space-y-8">
+          {/* Document Evidence Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
-              <TableProperties size={18} />
-              <h3 className="font-bold">1. Smart Data Capture</h3>
-            </div>
-            <DynamicFormRenderer
-              sections={template?.sections || []}
-              register={register}
-              errors={errors}
-              control={control}
-            />
-          </div>
-
-          {/* Document Evidence Section */}
-          <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
               <FileText size={18} />
-              <h3 className="font-bold">2. Document Evidence</h3>
+              <h3 className="font-bold">Document Evidence</h3>
             </div>
             
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-5">
@@ -227,7 +195,7 @@ export default function FillForm() {
 
           <div className="pt-2 flex gap-3">
             <Button type="submit" loading={submitting} icon={Upload} className="flex-1" size="lg">
-              Submit Smart Form
+              Submit Document
             </Button>
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancel

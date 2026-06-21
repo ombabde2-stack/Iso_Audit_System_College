@@ -41,25 +41,6 @@ const formTemplateSchema = new mongoose.Schema(
     deadline: {
       type: Date,
     },
-    // Dynamic field schema definition
-    fields: [
-      {
-        name: String,
-        label: String,
-        type: {
-          type: String,
-          enum: ["text", "number", "date", "month", "textarea", "select", "checkbox", "file"],
-          default: "text",
-        },
-        required: Boolean,
-        options: [String], // For select fields
-        placeholder: String,
-      },
-    ],
-    // New: Structured UI Blueprint
-    sections: {
-      type: mongoose.Schema.Types.Mixed,
-    },
   },
   { timestamps: true }
 );
